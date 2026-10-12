@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Auko-Tex Central Portal
 
-## Getting Started
+Auko-Tex Central Portal is an internal web application developed for Auko-Tex Group to manage employee services, meetings, IT inventory, IT support, and other administrative workflows.
 
-First, run the development server:
+## Main Modules
+
+- User Authentication & Role Management
+- Meeting Room Management
+- IT Inventory
+- IT Support / Ticketing
+- Notifications
+- Audit Log
+- Machinery Module
+
+## Main Dashboard
+<img width="1633" height="898" alt="image" src="https://github.com/user-attachments/assets/90ed9f70-9611-4b96-b520-9659d042d662" />
+
+## Meeting Dashboard
+<img width="1532" height="825" alt="image" src="https://github.com/user-attachments/assets/63ea7db0-3835-4de0-887d-402f2e2600df" />
+
+## Ticket System
+<img width="1779" height="829" alt="image" src="https://github.com/user-attachments/assets/12ac5b40-9d14-4c6c-8199-217ce792adcf" />
+
+## Admin Panel
+<img width="1665" height="897" alt="image" src="https://github.com/user-attachments/assets/f42c1e6f-432b-4460-9551-d8614f76db0d" />
+
+
+## Technology Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- PostgreSQL
+
+## User Roles
+
+- USER
+- ADMIN
+- SUPER_ADMIN
+
+## Local Setup
+
+Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+npm install
