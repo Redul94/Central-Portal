@@ -64,7 +64,7 @@ async function getAdmin() {
 
     if (
         admin.account_status !==
-            "ACTIVE" ||
+        "ACTIVE" ||
         ![
             "ADMIN",
             "SUPER_ADMIN",
@@ -232,6 +232,13 @@ export async function GET(
         ];
 
         if (
+            status === "ACTIVE"
+        ) {
+            conditions.push(
+                `t.ticket_status NOT IN ('DONE', 'CANCELLED')`
+            );
+
+        } else if (
             status &&
             allowedStatuses.includes(
                 status
@@ -427,23 +434,13 @@ export async function GET(
 
                 ORDER BY
                     CASE
-                        WHEN
-                            t.priority =
-                            'CRITICAL'
-                        THEN 1
-
-                        WHEN
-                            t.priority =
-                            'HIGH'
-                        THEN 2
-
-                        WHEN
-                            t.priority =
-                            'NORMAL'
-                        THEN 3
-
-                        ELSE 4
-                    END,
+        WHEN t.priority = 'CRITICAL' THEN 1
+        WHEN t.priority = 'HIGH' THEN 2
+        WHEN t.priority = 'MEDIUM' THEN 3
+        WHEN t.priority = 'NORMAL' THEN 4
+        WHEN t.priority = 'LOW' THEN 5
+        ELSE 6
+    END,
 
                     t.created_at DESC,
 

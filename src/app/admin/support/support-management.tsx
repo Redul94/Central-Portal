@@ -37,6 +37,7 @@ type Ticket = {
     priority:
     | "LOW"
     | "NORMAL"
+    | "MEDIUM"
     | "HIGH"
     | "CRITICAL";
 
@@ -540,7 +541,7 @@ export default function SupportManagement() {
         status,
         setStatus,
     ] =
-        useState("");
+        useState("ACTIVE");
 
     const [
         priority,
@@ -674,7 +675,7 @@ export default function SupportManagement() {
         useCallback(
             async (
                 searchValue = "",
-                statusValue = "",
+                statusValue = "ACTIVE",
                 priorityValue = ""
             ) => {
                 try {
@@ -1015,11 +1016,15 @@ export default function SupportManagement() {
     async function clearFilter() {
         setSearch("");
 
-        setStatus("");
+        setStatus("ACTIVE");
 
         setPriority("");
 
-        await loadTickets();
+        await loadTickets(
+            "",
+            "ACTIVE",
+            ""
+        );
     }
 
     // ==========================================
@@ -1485,6 +1490,9 @@ export default function SupportManagement() {
                         className={inputClass}
                     >
 
+                        <option value="ACTIVE">
+                            Active Tickets
+                        </option>
                         <option value="">
                             All Status
                         </option>
@@ -1592,7 +1600,13 @@ export default function SupportManagement() {
                     </h3>
 
                     <p className="mt-1 text-sm text-gray-500">
-                        Showing {tickets.length} ticket(s)
+                        {status === "ACTIVE"
+                            ? `Showing ${tickets.length} active ticket(s)`
+                            : status === "DONE"
+                                ? `Showing ${tickets.length} completed ticket(s)`
+                                : status === "CANCELLED"
+                                    ? `Showing ${tickets.length} cancelled ticket(s)`
+                                    : `Showing ${tickets.length} ticket(s)`}
                     </p>
 
                 </div>
