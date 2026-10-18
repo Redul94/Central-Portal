@@ -274,7 +274,7 @@ export default function UsersTable({
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
 
                     <div>
-                        
+
 
                         <h1 className="mt-1 text-2xl font-bold">
                             Admin Panel
@@ -390,7 +390,7 @@ export default function UsersTable({
                             )
                         }
                         placeholder="Search employee ID, name, department, designation or email..."
-                        className="border border-gray-300 px-4 py-3 outline-none focus:border-[#d4af37]"
+                        className="border border-gray-300 text-gray-900 px-4 py-3 outline-none focus:border-[#d4af37]"
                     />
 
                     <select
@@ -400,7 +400,7 @@ export default function UsersTable({
                                 event.target.value
                             )
                         }
-                        className="border border-gray-300 px-4 py-3 outline-none focus:border-[#d4af37]"
+                        className="border border-gray-300 text-gray-900 px-4 py-3 outline-none focus:border-[#d4af37]"
                     >
                         <option value="ALL">
                             All Status
@@ -479,7 +479,7 @@ export default function UsersTable({
                                 </tr>
                             </thead>
 
-                            <tbody>
+                            <tbody className="text-gray-900">
 
                                 {loading ? (
                                     <tr>

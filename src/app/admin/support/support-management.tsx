@@ -1930,7 +1930,7 @@ export default function SupportManagement() {
 
                                                             <div>
 
-                                                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-900">
                                                                     IT Engineer
                                                                 </label>
 
@@ -1955,7 +1955,7 @@ export default function SupportManagement() {
                                                                             })
                                                                         )
                                                                     }
-                                                                    className="h-10 w-full border border-gray-300 bg-white px-2 text-sm outline-none focus:border-[#d4af37]"
+                                                                    className="h-10 w-full border border-gray-300 bg-white px-2 text-sm text-gray-900 outline-none focus:border-[#d4af37]"
                                                                 >
 
                                                                     <option value="">
@@ -1993,7 +1993,7 @@ export default function SupportManagement() {
 
                                                             <div>
 
-                                                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-900">
                                                                     TNA - Date & Time
                                                                 </label>
 
@@ -2019,7 +2019,7 @@ export default function SupportManagement() {
                                                                             })
                                                                         )
                                                                     }
-                                                                    className="h-10 w-full border border-gray-300 bg-white px-2 text-sm outline-none focus:border-[#d4af37]"
+                                                                    className="h-10 w-full border border-gray-300 bg-white px-2 text-gray-900 text-sm outline-none focus:border-[#d4af37]"
                                                                 />
 
                                                             </div>
