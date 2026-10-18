@@ -1613,7 +1613,7 @@ export default function SupportManagement() {
 
                 <div className="overflow-x-auto">
 
-                    <table className="min-w-[2100px] w-full">
+                    <table className="w-full">
 
                         <thead className="bg-[#1a1a1a] text-white">
 
