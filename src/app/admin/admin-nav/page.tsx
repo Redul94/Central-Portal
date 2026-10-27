@@ -38,6 +38,19 @@ const navItems: NavItem[] = [
         label: "IT Inventory",
         href: "/admin/inventory",
     },
+
+    // NEW: IT REQUISITION MANAGEMENT
+    {
+        label: "IT Requisition",
+        href: "/admin/inventory/requisitions",
+    },
+
+    // NEW: IT WARRANTY MANAGEMENT
+    {
+        label: "IT Warranty",
+        href: "/admin/inventory/warranty",
+    },
+
     {
         label: "IT Support",
         href: "/admin/support",
@@ -52,55 +65,53 @@ const navItems: NavItem[] = [
 export default function AdminNav({
     adminRole,
 }: Props) {
-    const pathname =
-        usePathname();
+    const pathname = usePathname();
 
     return (
-        <div className="mb-7 flex flex-wrap gap-2 border-b border-gray-300 pb-4">
-
-            {navItems.map(
-                (item) => {
-                    if (
-                        item.superAdminOnly &&
-                        adminRole !==
-                        "SUPER_ADMIN"
-                    ) {
-                        return null;
-                    }
-
-                    const active =
-                        pathname ===
-                        item.href ||
-                        (
-                            item.href !==
-                            "/admin" &&
-                            pathname.startsWith(
-                                `${item.href}/`
-                            )
-                        );
-
-                    return (
-                        <Link
-                            key={
-                                item.href
-                            }
-                            href={
-                                item.href
-                            }
-                            className={
-                                active
-                                    ? "bg-[#d4af37] px-4 py-2 text-sm font-bold text-black"
-                                    : "border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#d4af37]"
-                            }
-                        >
-                            {
-                                item.label
-                            }
-                        </Link>
-                    );
+        <nav
+            aria-label="Admin navigation"
+            className="mb-7 flex flex-wrap gap-2 border-b border-gray-300 pb-4"
+        >
+            {navItems.map((item) => {
+                if (
+                    item.superAdminOnly &&
+                    adminRole !== "SUPER_ADMIN"
+                ) {
+                    return null;
                 }
-            )}
 
-        </div>
+                // Keep IT Inventory as an independent
+                // navigation item, so only the current
+                // page is highlighted.
+                const exactOnly = [
+                    "/admin",
+                    "/admin/inventory",
+                ].includes(item.href);
+
+                const active = exactOnly
+                    ? pathname === item.href
+                    : pathname === item.href ||
+                    pathname.startsWith(
+                        `${item.href}/`
+                    );
+
+                return (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        aria-current={
+                            active ? "page" : undefined
+                        }
+                        className={
+                            active
+                                ? "bg-[#d4af37] px-4 py-2 text-sm font-bold text-black"
+                                : "border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-[#d4af37] hover:text-black"
+                        }
+                    >
+                        {item.label}
+                    </Link>
+                );
+            })}
+        </nav>
     );
 }
