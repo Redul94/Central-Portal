@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySessionToken } from "@/lib/auth";
@@ -5,6 +6,10 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// ============================================
+// REQUISITION STATUSES
+// ============================================
 
 const STATUSES = [
     "PENDING",
@@ -17,19 +22,35 @@ const STATUSES = [
     "REJECTED",
 ];
 
-async function authorized() {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auko_session")?.value;
+// ============================================
+// ADMIN AUTHENTICATION
+// ============================================
 
-    if (!token) return false;
+async function getAdmin() {
+    const cookieStore = await cookies();
+
+    const token =
+        cookieStore.get("auko_session")?.value;
+
+    if (!token) {
+        return null;
+    }
 
     const session = await verifySessionToken(token);
 
-    return Boolean(
-        session &&
-        ["ADMIN", "SUPER_ADMIN"].includes(session.role)
-    );
+    if (
+        !session ||
+        !["ADMIN", "SUPER_ADMIN"].includes(session.role)
+    ) {
+        return null;
+    }
+
+    return session;
 }
+
+// ============================================
+// HELPERS
+// ============================================
 
 function clean(value: unknown, max = 500) {
     return typeof value === "string"
@@ -37,18 +58,29 @@ function clean(value: unknown, max = 500) {
         : "";
 }
 
+function validDate(value: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+    }
+
+    const date = new Date(`${value}T00:00:00Z`);
+
+    return (
+        !Number.isNaN(date.getTime()) &&
+        date.toISOString().slice(0, 10) === value
+    );
+}
+
 function validate(data: Record<string, unknown>) {
     const item = clean(data.item, 200);
     const qty = Number(data.qty);
-    const requisitionBy = clean(data.requisition_by, 200);
     const date = clean(data.requisition_date, 10);
     const status = clean(data.status, 30);
 
     if (
         !item ||
-        !requisitionBy ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-        !Number.isInteger(qty) ||
+        !validDate(date) ||
+        !Number.isSafeInteger(qty) ||
         qty <= 0 ||
         !STATUSES.includes(status)
     ) {
@@ -60,9 +92,14 @@ function validate(data: Record<string, unknown>) {
         item,
         model: clean(data.model, 5000),
         qty,
-        requisition_by: requisitionBy,
-        requisition_for: clean(data.requisition_for, 5000),
-        on_hold_for: clean(data.on_hold_for, 5000),
+        requisition_for: clean(
+            data.requisition_for,
+            5000
+        ),
+        on_hold_for: clean(
+            data.on_hold_for,
+            5000
+        ),
         status,
         remarks: clean(data.remarks, 5000),
     };
@@ -76,9 +113,14 @@ function validId(value: unknown) {
         : null;
 }
 
-// GET - List requisitions
+// ============================================
+// GET - LIST REQUISITIONS
+// ============================================
+
 export async function GET() {
-    if (!(await authorized())) {
+    const session = await getAdmin();
+
+    if (!session) {
         return NextResponse.json(
             { error: "Unauthorized" },
             { status: 401 }
@@ -101,30 +143,58 @@ export async function GET() {
                 on_hold_for,
                 status,
                 remarks,
-                GREATEST(
-                    CURRENT_DATE - requisition_date,
-                    0
-                )::integer AS due_days
+                CASE
+    WHEN status = 'RECEIVED' THEN
+        CASE
+            WHEN received_at IS NOT NULL
+            THEN GREATEST(
+                received_at - requisition_date,
+                0
+            )
+            ELSE NULL
+        END
+    ELSE GREATEST(
+        CURRENT_DATE - requisition_date,
+        0
+    )
+END::integer AS due_days
             FROM it_requisitions
             ORDER BY requisition_date DESC, id DESC
         `);
 
-        return NextResponse.json({
-            requisitions: result.rows,
-        });
+        return NextResponse.json(
+            {
+                requisitions: result.rows,
+            },
+            {
+                headers: {
+                    "Cache-Control": "no-store",
+                },
+            }
+        );
     } catch (error) {
-        console.error("GET requisitions:", error);
+        console.error(
+            "GET requisitions:",
+            error
+        );
 
         return NextResponse.json(
-            { error: "Unable to load requisitions" },
+            {
+                error: "Unable to load requisitions",
+            },
             { status: 500 }
         );
     }
 }
 
-// POST - Add requisition
+// ============================================
+// POST - CREATE REQUISITION
+// ============================================
+
 export async function POST(request: NextRequest) {
-    if (!(await authorized())) {
+    const session = await getAdmin();
+
+    if (!session) {
         return NextResponse.json(
             { error: "Unauthorized" },
             { status: 401 }
@@ -137,7 +207,26 @@ export async function POST(request: NextRequest) {
 
         if (!data) {
             return NextResponse.json(
-                { error: "Invalid requisition information" },
+                {
+                    error:
+                        "Invalid requisition information",
+                },
+                { status: 400 }
+            );
+        }
+
+        // Requisition By is taken from the
+        // authenticated administrator session.
+        // The frontend cannot override it.
+
+        const requisitionBy = session.fullName;
+
+        if (!requisitionBy?.trim()) {
+            return NextResponse.json(
+                {
+                    error:
+                        "Administrator name is unavailable",
+                },
                 { status: 400 }
             );
         }
@@ -156,7 +245,8 @@ export async function POST(request: NextRequest) {
                 remarks
             )
             VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9
             )
             RETURNING id::text AS id
             `,
@@ -165,7 +255,7 @@ export async function POST(request: NextRequest) {
                 data.item,
                 data.model,
                 data.qty,
-                data.requisition_by,
+                requisitionBy,
                 data.requisition_for,
                 data.on_hold_for,
                 data.status,
@@ -181,18 +271,29 @@ export async function POST(request: NextRequest) {
             { status: 201 }
         );
     } catch (error) {
-        console.error("POST requisition:", error);
+        console.error(
+            "POST requisition:",
+            error
+        );
 
         return NextResponse.json(
-            { error: "Unable to create requisition" },
+            {
+                error:
+                    "Unable to create requisition",
+            },
             { status: 500 }
         );
     }
 }
 
-// PATCH - Update requisition
+// ============================================
+// PATCH - UPDATE REQUISITION
+// ============================================
+
 export async function PATCH(request: NextRequest) {
-    if (!(await authorized())) {
+    const session = await getAdmin();
+
+    if (!session) {
         return NextResponse.json(
             { error: "Unauthorized" },
             { status: 401 }
@@ -201,39 +302,61 @@ export async function PATCH(request: NextRequest) {
 
     try {
         const body = await request.json();
+
         const id = validId(body.id);
         const data = validate(body);
 
         if (!id || !data) {
             return NextResponse.json(
-                { error: "Invalid requisition information" },
+                {
+                    error:
+                        "Invalid requisition information",
+                },
                 { status: 400 }
             );
         }
 
+        // IMPORTANT:
+        // requisition_by is intentionally excluded
+        // from UPDATE.
+        //
+        // This preserves the original administrator
+        // who created the requisition.
+
+
         const result = await db.query(
             `
-            UPDATE it_requisitions
-            SET
-                requisition_date = $1,
-                item = $2,
-                model = $3,
-                qty = $4,
-                requisition_by = $5,
-                requisition_for = $6,
-                on_hold_for = $7,
-                status = $8,
-                remarks = $9,
-                updated_at = NOW()
-            WHERE id = $10
-            RETURNING id
-            `,
+    UPDATE it_requisitions
+    SET
+        requisition_date = $1,
+        item = $2,
+        model = $3,
+        qty = $4,
+        requisition_for = $5,
+        on_hold_for = $6,
+
+        received_at = CASE
+            WHEN $7 = 'RECEIVED'
+                 AND status <> 'RECEIVED'
+            THEN CURRENT_DATE
+
+            WHEN $7 <> 'RECEIVED'
+            THEN NULL
+
+            ELSE received_at
+        END,
+
+        status = $7,
+        remarks = $8,
+        updated_at = NOW()
+    WHERE id = $9
+    RETURNING id
+    `,
             [
                 data.requisition_date,
                 data.item,
                 data.model,
                 data.qty,
-                data.requisition_by,
                 data.requisition_for,
                 data.on_hold_for,
                 data.status,
@@ -242,27 +365,45 @@ export async function PATCH(request: NextRequest) {
             ]
         );
 
+
         if (result.rowCount === 0) {
             return NextResponse.json(
-                { error: "Requisition not found" },
+                {
+                    error: "Requisition not found",
+                },
                 { status: 404 }
             );
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            message:
+                "Requisition updated successfully",
+        });
     } catch (error) {
-        console.error("PATCH requisition:", error);
+        console.error(
+            "PATCH requisition:",
+            error
+        );
 
         return NextResponse.json(
-            { error: "Unable to update requisition" },
+            {
+                error:
+                    "Unable to update requisition",
+            },
             { status: 500 }
         );
     }
 }
 
-// DELETE - Remove requisition
+// ============================================
+// DELETE - REMOVE REQUISITION
+// ============================================
+
 export async function DELETE(request: NextRequest) {
-    if (!(await authorized())) {
+    const session = await getAdmin();
+
+    if (!session) {
         return NextResponse.json(
             { error: "Unauthorized" },
             { status: 401 }
@@ -275,30 +416,47 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
         return NextResponse.json(
-            { error: "Invalid requisition ID" },
+            {
+                error: "Invalid requisition ID",
+            },
             { status: 400 }
         );
     }
 
     try {
         const result = await db.query(
-            "DELETE FROM it_requisitions WHERE id = $1",
+            `
+            DELETE FROM it_requisitions
+            WHERE id = $1
+            `,
             [id]
         );
 
         if (result.rowCount === 0) {
             return NextResponse.json(
-                { error: "Requisition not found" },
+                {
+                    error: "Requisition not found",
+                },
                 { status: 404 }
             );
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            message:
+                "Requisition deleted successfully",
+        });
     } catch (error) {
-        console.error("DELETE requisition:", error);
+        console.error(
+            "DELETE requisition:",
+            error
+        );
 
         return NextResponse.json(
-            { error: "Unable to delete requisition" },
+            {
+                error:
+                    "Unable to delete requisition",
+            },
             { status: 500 }
         );
     }

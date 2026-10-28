@@ -9,7 +9,7 @@ type Requisition = {
     model: string;
     qty: number;
     requisition_by: string;
-    due_days: number;
+    due_days: number | null;
     requisition_for: string;
     on_hold_for: string;
     status: string;
@@ -463,7 +463,7 @@ export default function RequisitionsClient() {
                                     />
                                 </div>
 
-                                <div>
+                                {/* <div>
                                     <label className={labelClass}>
                                         Requisition By *
                                     </label>
@@ -478,7 +478,7 @@ export default function RequisitionsClient() {
                                         }
                                         className={inputClass}
                                     />
-                                </div>
+                                </div> */}
 
                                 <div>
                                     <label className={labelClass}>
@@ -666,15 +666,19 @@ export default function RequisitionsClient() {
                                             <td className="px-2.5 py-3">
                                                 <span
                                                     className={
-                                                        row.status === "RECEIVED" ||
-                                                            row.status === "CANCELLED"
-                                                            ? "text-gray-500"
-                                                            : row.due_days > 30
-                                                                ? "font-bold text-red-700"
-                                                                : "text-gray-900"
+                                                        row.due_days === null
+                                                            ? "text-gray-400"
+                                                            : row.status === "RECEIVED" ||
+                                                                row.status === "CANCELLED"
+                                                                ? "text-gray-500"
+                                                                : row.due_days > 30
+                                                                    ? "font-bold text-red-700"
+                                                                    : "text-gray-900"
                                                     }
                                                 >
-                                                    {row.due_days}
+                                                    {row.due_days === null
+                                                        ? "—"
+                                                        : row.due_days}
                                                 </span>
                                             </td>
                                             <td className="px-2.5 py-3">
