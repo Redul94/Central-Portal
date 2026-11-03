@@ -603,180 +603,201 @@ export default function RequisitionsClient() {
         )}</title>
 
 <style>
-    @page {
-        size: A3 landscape;
-        margin: 10mm;
-    }
+    
+@page {
+    size: A4 landscape;
+    margin-top: 10mm;
+    margin-right: 10mm;
+    margin-bottom: 12mm;
+    margin-left: 10mm;
+}
 
-    * {
-        box-sizing: border-box;
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    color: #111111;
+    font-family: Arial, "Noto Sans", "Segoe UI", sans-serif;
+    font-size: 9px;
+}
+
+.report-wrap {
+    width: 100%;
+    overflow: hidden;
+}
+
+.heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #e5e5e5;
+    border: 1px solid #555;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    gap: 14px;
+}
+
+.company {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.company span {
+    color: #bc8f17;
+}
+
+.report-title {
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+    flex: 1;
+}
+
+.report-date {
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.metadata {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 4px 0 8px;
+    font-size: 10px;
+}
+
+.metadata strong {
+    margin-right: 4px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 1px solid #555;
+}
+
+th,
+td {
+    border: 1px solid #555;
+    padding: 4px 4px;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-line;
+    font-size: 9px;
+}
+
+th {
+    background: #d8d8d8;
+    font-weight: 800;
+    text-align: center;
+}
+
+thead {
+    display: table-header-group;
+}
+
+tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+th:last-child,
+td:last-child {
+    border-right: 1px solid #555;
+}
+
+/* A4 landscape adjusted widths */
+th:nth-child(1) { width: 3%; }
+th:nth-child(2) { width: 8%; }
+th:nth-child(3) { width: 11%; }
+th:nth-child(4) { width: 15%; }
+th:nth-child(5) { width: 4%; }
+th:nth-child(6) { width: 10%; }
+th:nth-child(7) { width: 6%; }
+th:nth-child(8) { width: 15%; }
+th:nth-child(9) { width: 10%; }
+th:nth-child(10) { width: 7%; }
+th:nth-child(11) { width: 7%; }
+
+td:nth-child(1),
+td:nth-child(5),
+td:nth-child(7) {
+    text-align: center;
+}
+
+td:nth-child(10) {
+    text-align: center;
+    font-weight: 700;
+}
+
+.status-pending {
+    background: #ffc8c8;
+    color: #990000;
+}
+
+.status-received {
+    background: #d7f3df;
+    color: #166534;
+}
+
+.status-cancelled {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.status-rejected {
+    background: #fecaca;
+    color: #991b1b;
+}
+
+.status-on-hold {
+    background: #fef08a;
+}
+
+.overdue {
+    color: #b91c1c;
+    font-weight: 800;
+}
+
+.footer {
+    margin-top: 10px;
+    border-top: 1px solid #aaa;
+    padding-top: 6px;
+    text-align: center;
+    font-size: 8px;
+    color: #555;
+}
+
+.print-actions {
+    margin-bottom: 10px;
+    text-align: right;
+}
+
+.print-actions button {
+    border: none;
+    padding: 8px 14px;
+    background: #d4af37;
+    color: #111;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+@media print {
+    .print-actions {
+        display: none;
     }
 
     body {
-        margin: 0;
-        color: #111111;
-        font-family: Arial, "Noto Sans",
-            "Segoe UI", sans-serif;
-        font-size: 10px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
-
-    .heading {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #e5e5e5;
-        border: 1px solid #555;
-        padding: 10px 12px;
-        margin-bottom: 8px;
-        gap: 20px;
-    }
-
-    .company {
-        font-size: 17px;
-        font-weight: 800;
-    }
-
-    .company span {
-        color: #bc8f17;
-    }
-
-    .report-title {
-        font-size: 16px;
-        font-weight: 800;
-        text-align: center;
-    }
-
-    .report-date {
-        font-size: 11px;
-        font-weight: 700;
-        white-space: nowrap;
-    }
-
-    .metadata {
-        display: flex;
-        gap: 25px;
-        flex-wrap: wrap;
-        padding: 7px 0 10px;
-        font-size: 11px;
-    }
-
-    .metadata strong {
-        margin-right: 5px;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
-
-    th, td {
-        border: 1px solid #555;
-        padding: 6px 5px;
-        vertical-align: top;
-        overflow-wrap: anywhere;
-        white-space: pre-line;
-    }
-
-    th {
-        background: #d8d8d8;
-        font-weight: 800;
-        text-align: center;
-    }
-
-    thead {
-        display: table-header-group;
-    }
-
-    tr {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    th:nth-child(1) { width: 3%; }
-    th:nth-child(2) { width: 8%; }
-    th:nth-child(3) { width: 12%; }
-    th:nth-child(4) { width: 17%; }
-    th:nth-child(5) { width: 4%; }
-    th:nth-child(6) { width: 10%; }
-    th:nth-child(7) { width: 6%; }
-    th:nth-child(8) { width: 15%; }
-    th:nth-child(9) { width: 10%; }
-    th:nth-child(10) { width: 7%; }
-    th:nth-child(11) { width: 8%; }
-
-    td:nth-child(1),
-    td:nth-child(5),
-    td:nth-child(7) {
-        text-align: center;
-    }
-
-    td:nth-child(10) {
-        text-align: center;
-        font-weight: 700;
-    }
-
-    .status-pending {
-        background: #ffc8c8;
-        color: #990000;
-    }
-
-    .status-received {
-        background: #d7f3df;
-        color: #166534;
-    }
-
-    .status-cancelled {
-        background: #e5e7eb;
-        color: #374151;
-    }
-
-    .status-rejected {
-        background: #fecaca;
-        color: #991b1b;
-    }
-
-    .status-on-hold {
-        background: #fef08a;
-    }
-
-    .overdue {
-        color: #b91c1c;
-        font-weight: 800;
-    }
-
-    .footer {
-        margin-top: 12px;
-        border-top: 1px solid #aaa;
-        padding-top: 6px;
-        text-align: center;
-        font-size: 9px;
-        color: #555;
-    }
-
-    .print-actions {
-        margin-bottom: 12px;
-        text-align: right;
-    }
-
-    .print-actions button {
-        border: none;
-        padding: 10px 18px;
-        background: #d4af37;
-        color: #111;
-        cursor: pointer;
-        font-weight: bold;
-    }
-
-    @media print {
-        .print-actions {
-            display: none;
-        }
-        body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-    }
+}
 </style>
 </head>
 
@@ -817,15 +838,16 @@ export default function RequisitionsClient() {
     </div>
 </div>
 
-<table>
-    <thead>
-        <tr>${tableHeaders}</tr>
-    </thead>
-
-    <tbody>
-        ${tableRows}
-    </tbody>
-</table>
+<div class="report-wrap">
+    <table>
+        <thead>
+            <tr>${tableHeaders}</tr>
+        </thead>
+        <tbody>
+            ${tableRows}
+        </tbody>
+    </table>
+</div>
 
 <div class="footer">
     Auko-Tex Group — IT Department
