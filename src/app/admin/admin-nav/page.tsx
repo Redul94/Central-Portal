@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -38,23 +39,25 @@ const navItems: NavItem[] = [
         label: "IT Inventory",
         href: "/admin/inventory",
     },
-
-    // NEW: IT REQUISITION MANAGEMENT
     {
         label: "IT Requisition",
         href: "/admin/inventory/requisitions",
     },
-
-    // NEW: IT WARRANTY MANAGEMENT
     {
         label: "IT Warranty",
         href: "/admin/inventory/warranty",
     },
-
     {
         label: "IT Support",
         href: "/admin/support",
     },
+
+    // NEW: LEFT USER MANAGEMENT
+    {
+        label: "Left User",
+        href: "/admin/left-user",
+    },
+
     {
         label: "Audit Log",
         href: "/admin/audit-log",
@@ -80,9 +83,8 @@ export default function AdminNav({
                     return null;
                 }
 
-                // Keep IT Inventory as an independent
-                // navigation item, so only the current
-                // page is highlighted.
+                // Keep IT Inventory and Pending Users
+                // as independent navigation items.
                 const exactOnly = [
                     "/admin",
                     "/admin/inventory",
@@ -91,9 +93,9 @@ export default function AdminNav({
                 const active = exactOnly
                     ? pathname === item.href
                     : pathname === item.href ||
-                    pathname.startsWith(
-                        `${item.href}/`
-                    );
+                      pathname.startsWith(
+                          `${item.href}/`
+                      );
 
                 return (
                     <Link
