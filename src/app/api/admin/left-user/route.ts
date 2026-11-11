@@ -107,7 +107,7 @@ function parseData(
 
         const max =
             key === "remarks" ||
-            key === "pending_requirements"
+                key === "pending_requirements"
                 ? 5000
                 : 200;
 
@@ -205,7 +205,7 @@ export async function GET() {
                 remarks,
                 created_by
             FROM it_left_users
-            ORDER BY join_left_date DESC, id DESC
+            ORDER BY id ASC
         `);
 
         return NextResponse.json(

@@ -8,12 +8,18 @@ import {
     useState,
     type FormEvent,
 } from "react";
+import * as XLSX from "xlsx";
 
 // ============================================
 // TYPES
 // ============================================
 
 type Movement = "LEFT" | "NEW_JOIN";
+
+type DeviceKey =
+    | "desktop_set"
+    | "laptop"
+    | "aio";
 
 type LeftUserRecord = {
     id: string;
@@ -47,9 +53,9 @@ type LeftUserForm = Omit<
 type SupportStaff = {
     id: number;
     portal_user_id: number;
-    staff_title: string | null;
     employee_id: string | null;
     full_name: string;
+    staff_title: string | null;
     designation: string | null;
     department: string | null;
     is_active: boolean;
@@ -58,7 +64,6 @@ type SupportStaff = {
 };
 
 type TextKey =
-    | "section_name"
     | "user_name"
     | "designation"
     | "department"
@@ -74,49 +79,59 @@ type StatusKey =
     | "email_management"
     | "whatsapp_management";
 
-type DeviceKey =
-    | "desktop_set"
-    | "laptop"
-    | "aio";
-
 // ============================================
-// API
+// ENDPOINTS
 // ============================================
 
 const API = "/api/admin/left-user";
-
-// Reuse the existing IT Support Task API.
-// It already supplies the support staff list.
-const SUPPORT_STAFF_API =
-    "/api/admin/support/staff";
+const STAFF_API = "/api/admin/support/staff";
 
 // ============================================
 // STYLES
 // ============================================
 
 const inputClass =
-    "w-full rounded border border-gray-300 " +
-    "bg-white px-3 py-2 text-center text-sm " +
-    "text-gray-900 outline-none " +
-    "focus:border-[#d4af37] " +
-    "focus:ring-1 focus:ring-[#d4af37]";
+    "w-full rounded border border-gray-300 bg-white " +
+    "px-3 py-2 text-center text-sm text-gray-900 " +
+    "outline-none focus:border-[#d4af37]";
 
 const labelClass =
-    "mb-1 block text-xs font-semibold " +
-    "text-center text-gray-700";
+    "mb-1 block text-center text-xs " +
+    "font-semibold text-gray-700";
 
 const thClass =
     "border border-gray-600 px-3 py-3 " +
-    "text-center align-middle text-xs " +
-    "font-bold whitespace-normal";
+    "text-center align-middle text-xs font-semibold";
 
 const tdClass =
     "border border-gray-300 px-3 py-3 " +
     "text-center align-middle text-xs " +
-    "text-gray-900 whitespace-pre-wrap break-words";
+    "whitespace-normal break-words";
 
 // ============================================
-// FORM FIELD CONFIGURATION
+// DEVICE OPTIONS
+// ============================================
+
+const DEVICE_OPTIONS: {
+    key: DeviceKey;
+    label: string;
+}[] = [
+        {
+            key: "desktop_set",
+            label: "Desktop Set",
+        },
+        {
+            key: "laptop",
+            label: "Laptop",
+        },
+        {
+            key: "aio",
+            label: "All in One (AIO)",
+        },
+    ];
+
+// ============================================
+// EMPLOYEE FIELDS
 // ============================================
 
 const TEXT_FIELDS: {
@@ -146,7 +161,6 @@ const TEXT_FIELDS: {
             key: "user_location",
             label: "User Location",
         },
-
         {
             key: "pending_requirements",
             label: "Pending Requirements (If Any)",
@@ -159,6 +173,10 @@ const TEXT_FIELDS: {
         },
     ];
 
+// ============================================
+// MANAGEMENT FIELDS
+// ============================================
+
 const STATUS_FIELDS: {
     key: StatusKey;
     label: string;
@@ -166,7 +184,7 @@ const STATUS_FIELDS: {
 }[] = [
         {
             key: "computer_management_status",
-            label: "Computer Management Status",
+            label: "Computer Management",
             options: [
                 "",
                 "Done",
@@ -176,7 +194,7 @@ const STATUS_FIELDS: {
         },
         {
             key: "data_backup_status",
-            label: "Data Backup Status",
+            label: "Data Backup Management",
             options: [
                 "",
                 "Done",
@@ -186,12 +204,12 @@ const STATUS_FIELDS: {
         },
         {
             key: "sim_handover_status",
-            label: "SIM Handover / Receive Status",
+            label: "SIM Management",
             options: [
                 "",
-                "Done",
-                "Pending",
-                "Not Required",
+                "Handover",
+                "Takeover",
+                "No",
             ],
         },
         {
@@ -221,48 +239,7 @@ const STATUS_FIELDS: {
     ];
 
 // ============================================
-// DEVICE CONFIGURATION
-// ============================================
-
-const DEVICE_TYPES: {
-    key: DeviceKey;
-    label: string;
-}[] = [
-        {
-            key: "desktop_set",
-            label: "Desktop Set",
-        },
-        {
-            key: "laptop",
-            label: "Laptop",
-        },
-        {
-            key: "aio",
-            label: "All in One (AIO)",
-        },
-    ];
-
-// 01 to 20 per device category
-const DEVICE_OPTIONS = DEVICE_TYPES.flatMap(
-    (device) =>
-        Array.from(
-            { length: 20 },
-            (_, index) => {
-                const quantity = index + 1;
-
-                return {
-                    value:
-                        `${device.key}:${quantity}`,
-                    label:
-                        `${device.label} ` +
-                        String(quantity).padStart(2, "0"),
-                };
-            }
-        )
-);
-
-// ============================================
-// TABLE HEADINGS - REQUIRED ORDER
+// EXPORT AND TABLE COLUMNS
 // ============================================
 
 const TABLE_HEADERS = [
@@ -274,36 +251,45 @@ const TABLE_HEADERS = [
     "User Location",
     "Join / Left Date",
     "Type",
-    "Device",
-    "Computer Management Status",
-    "Data Backup Status",
-    "SIM Handover / Receive Status",
+    "Device Management",
+    "Computer Management",
+    "Data Backup Management",
+    "SIM Management",
     "E-mail Management",
     "WhatsApp Management",
     "Pending Requirements (If Any)",
     "Service Ensured By",
+    "Issued By",
     "Remarks",
     "Action",
 ];
+
+const EXPORT_HEADERS = TABLE_HEADERS.filter(
+    (heading) => heading !== "Action"
+);
 
 // ============================================
 // HELPERS
 // ============================================
 
-function localDate() {
+function currentDate(): string {
     const date = new Date();
 
-    const year = date.getFullYear();
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+}
 
-    const month = String(
-        date.getMonth() + 1
-    ).padStart(2, "0");
+function readableDate(value: string): string {
+    if (!value) return "—";
 
-    const day = String(
-        date.getDate()
-    ).padStart(2, "0");
+    const [year, month, day] = value.split("-");
 
-    return `${year}-${month}-${day}`;
+    return year && month && day
+        ? `${day}-${month}-${year}`
+        : value;
 }
 
 function blankForm(): LeftUserForm {
@@ -318,7 +304,7 @@ function blankForm(): LeftUserForm {
         desktop_set: 0,
         laptop: 0,
         aio: 0,
-        join_left_date: localDate(),
+        join_left_date: currentDate(),
         computer_management_status: "",
         data_backup_status: "",
         sim_handover_status: "",
@@ -330,88 +316,39 @@ function blankForm(): LeftUserForm {
     };
 }
 
-function readableDate(value: string) {
-    if (!value) return "—";
-
-    const [year, month, day] = value.split("-");
-
-    if (!year || !month || !day) {
-        return value;
-    }
-
-    return `${day}-${month}-${year}`;
-}
-
 function deviceLabel(
     row: Pick<
         LeftUserForm,
         "desktop_set" | "laptop" | "aio"
     >
 ): string {
-    return [
-        Number(row.desktop_set) > 0 ? "Desktop Set" : "",
-        Number(row.laptop) > 0 ? "Laptop" : "",
-        Number(row.aio) > 0 ? "All in One (AIO)" : "",
-    ]
-        .filter(Boolean)
-        .join(", ") || "—";
+    const selected = DEVICE_OPTIONS
+        .filter(
+            (device) =>
+                Number(row[device.key]) > 0
+        )
+        .map((device) => device.label);
+
+    return selected.length
+        ? selected.join(", ")
+        : "No Device";
 }
 
-// Determine the dropdown selection for an
-// existing database record.
-function getDeviceSelection(
-    row: Pick<
-        LeftUserRecord,
-        "desktop_set" | "laptop" | "aio"
-    >
+function displayText(value: unknown): string {
+    if (value === null || value === undefined) {
+        return "—";
+    }
+
+    return String(value).trim() || "—";
+}
+
+function formatStaffName(
+    member: SupportStaff
 ): string {
-    const quantities = [
-        {
-            key: "desktop_set",
-            quantity: Number(row.desktop_set),
-        },
-        {
-            key: "laptop",
-            quantity: Number(row.laptop),
-        },
-        {
-            key: "aio",
-            quantity: Number(row.aio),
-        },
-    ].filter(
-        (device) => device.quantity > 0
-    );
-
-    if (quantities.length === 0) {
-        return "none";
-    }
-
-    if (quantities.length > 1) {
-        return "existing";
-    }
-
-    const selected = quantities[0];
-
-    const value =
-        `${selected.key}:${selected.quantity}`;
-
-    const supported = DEVICE_OPTIONS.some(
-        (option) => option.value === value
-    );
-
-    return supported ? value : "existing";
-}
-
-function formatStaffName(staff: SupportStaff) {
-    const title =
-        staff.staff_title ||
-        staff.designation ||
-        "";
-
     return [
-        staff.employee_id,
-        staff.full_name,
-        title,
+        member.employee_id,
+        member.full_name,
+        member.staff_title || member.designation,
     ]
         .filter(Boolean)
         .join(" - ");
@@ -430,6 +367,48 @@ async function readJson(response: Response) {
     return response.json();
 }
 
+// Prevent HTML injection in printable report.
+function escapeHtml(value: unknown): string {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+// ============================================
+// EXPORT ROW MAPPING
+// ============================================
+
+function getExportRow(
+    row: LeftUserRecord,
+    serial: number
+): (string | number)[] {
+    return [
+        serial,
+        row.user_name,
+        row.designation,
+        row.department,
+        row.mobile_no,
+        row.user_location,
+        readableDate(row.join_left_date),
+        row.movement_type === "LEFT"
+            ? "LEFT"
+            : "NEW JOIN",
+        deviceLabel(row),
+        row.computer_management_status,
+        row.data_backup_status,
+        row.sim_handover_status,
+        row.email_management,
+        row.whatsapp_management,
+        row.pending_requirements,
+        row.service_ensured_by,
+        row.created_by,
+        row.remarks,
+    ];
+}
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -442,7 +421,6 @@ export default function LeftUserClient() {
         useState<SupportStaff[]>([]);
 
     const [loading, setLoading] = useState(true);
-
     const [staffLoading, setStaffLoading] =
         useState(true);
 
@@ -451,68 +429,54 @@ export default function LeftUserClient() {
     const [deletingId, setDeletingId] =
         useState<string | null>(null);
 
-    // Default: LEFT
     const [filter, setFilter] =
-        useState<"ALL" | Movement>("LEFT");
+        useState<"ALL" | Movement>("ALL");
 
     const [search, setSearch] = useState("");
 
     const [form, setForm] =
         useState<LeftUserForm>(blankForm);
 
-    const [deviceSelection, setDeviceSelection] =
-        useState("none");
-
     const [editingId, setEditingId] =
         useState<string | null>(null);
 
-    const [showForm, setShowForm] = useState(false);
+    const [showForm, setShowForm] =
+        useState(false);
 
-    const [scrollKey, setScrollKey] = useState(0);
+    const [scrollKey, setScrollKey] =
+        useState(0);
 
-    const formRef = useRef<HTMLElement | null>(null);
+    const formRef = useRef<HTMLElement>(null);
 
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
-    const [staffError, setStaffError] = useState("");
-
-    function toggleDevice(
-        type: "desktop_set" | "laptop" | "aio",
-        checked: boolean
-    ) {
-        setForm((previous) => ({
-            ...previous,
-            [type]: checked
-                ? Math.max(Number(previous[type]) || 0, 1)
-                : 0,
-        }));
-    }
+    const [staffError, setStaffError] =
+        useState("");
 
     // ========================================
-    // LOAD LEFT USER RECORDS
+    // LOAD RECORDS
     // ========================================
 
     const reload = useCallback(async () => {
         setLoading(true);
 
         try {
-            const response = await fetch(
-                API,
-                { cache: "no-store" }
-            );
+            const response = await fetch(API, {
+                cache: "no-store",
+            });
 
-            const result = await readJson(response);
+            const data = await readJson(response);
 
             if (!response.ok) {
                 throw new Error(
-                    result.error ||
-                    "Unable to load Left User records"
+                    data.error ||
+                    "Unable to load records"
                 );
             }
 
             setRecords(
-                Array.isArray(result.records)
-                    ? result.records
+                Array.isArray(data.records)
+                    ? data.records
                     : []
             );
         } catch (err) {
@@ -527,7 +491,7 @@ export default function LeftUserClient() {
     }, []);
 
     // ========================================
-    // LOAD EXISTING IT SUPPORT STAFF
+    // LOAD SUPPORT STAFF
     // ========================================
 
     const loadSupportStaff = useCallback(
@@ -537,43 +501,33 @@ export default function LeftUserClient() {
 
             try {
                 const response = await fetch(
-                    SUPPORT_STAFF_API,
-                    {
-                        cache: "no-store",
-                    }
+                    STAFF_API,
+                    { cache: "no-store" }
                 );
 
-                const result =
-                    await readJson(response);
+                const data = await readJson(response);
 
                 if (!response.ok) {
                     throw new Error(
-                        result.message ||
-                        result.error ||
+                        data.message ||
+                        data.error ||
                         "Unable to load IT Support Staff"
                     );
                 }
 
-                // This is the SAME staff array
-                // used by Create IT Support Task.
                 const staff: SupportStaff[] =
-                    Array.isArray(result.staff)
-                        ? result.staff
+                    Array.isArray(data.staff)
+                        ? data.staff
                         : [];
 
-                const activeStaff = staff.filter(
-                    (member) =>
-                        member.is_active === true &&
-                        member.account_status === "ACTIVE"
+                setSupportStaff(
+                    staff.filter(
+                        (member) =>
+                            member.is_active === true &&
+                            member.account_status === "ACTIVE"
+                    )
                 );
-
-                setSupportStaff(activeStaff);
             } catch (err) {
-                console.error(
-                    "IT Support Staff loading error:",
-                    err
-                );
-
                 setStaffError(
                     err instanceof Error
                         ? err.message
@@ -592,42 +546,30 @@ export default function LeftUserClient() {
     }, [reload, loadSupportStaff]);
 
     // ========================================
-    // AUTO SCROLL TO FORM
+    // AUTO SCROLL
     // ========================================
 
     useEffect(() => {
-        if (scrollKey > 0 && showForm) {
+        if (showForm && scrollKey > 0) {
             formRef.current?.scrollIntoView({
                 behavior: "smooth",
                 block: "start",
             });
         }
-    }, [scrollKey, showForm]);
+    }, [showForm, scrollKey]);
 
     // ========================================
-    // NEW RECORD
+    // FORM OPERATIONS
     // ========================================
 
     function openNew() {
         setEditingId(null);
-
         setForm(blankForm());
-
-        setDeviceSelection("none");
-
         setError("");
         setMessage("");
-
         setShowForm(true);
-
-        setScrollKey(
-            (current) => current + 1
-        );
+        setScrollKey((x) => x + 1);
     }
-
-    // ========================================
-    // EDIT RECORD
-    // ========================================
 
     function openEdit(row: LeftUserRecord) {
         setEditingId(row.id);
@@ -661,39 +603,21 @@ export default function LeftUserClient() {
             remarks: row.remarks,
         });
 
-        setDeviceSelection(
-            getDeviceSelection(row)
-        );
-
         setError("");
         setMessage("");
-
         setShowForm(true);
-
-        setScrollKey(
-            (current) => current + 1
-        );
+        setScrollKey((x) => x + 1);
     }
-
-    // ========================================
-    // CLOSE FORM
-    // ========================================
 
     function closeForm() {
         if (busy) return;
-
         setShowForm(false);
         setEditingId(null);
-        setError("");
     }
 
-    // ========================================
-    // UPDATE FORM FIELD
-    // ========================================
-
-    function update(
+    function updateField(
         key: keyof LeftUserForm,
-        value: string | number
+        value: string
     ) {
         setForm((previous) => ({
             ...previous,
@@ -701,65 +625,43 @@ export default function LeftUserClient() {
         }));
     }
 
-    // ========================================
-    // DEVICE DROPDOWN UPDATE
-    // ========================================
-
-    function updateDevice(value: string) {
-        setDeviceSelection(value);
-
-        // Preserve existing multi-device records
-        // until the user selects a new device.
-        if (value === "existing") {
-            return;
-        }
-
-        const newDevices = {
-            desktop_set: 0,
-            laptop: 0,
-            aio: 0,
-        };
-
-        if (value !== "none") {
-            const [type, count] =
-                value.split(":");
-
-            const quantity = Number(count);
-
-            if (
-                Number.isSafeInteger(quantity) &&
-                quantity >= 1 &&
-                quantity <= 20
-            ) {
-                if (type === "desktop_set") {
-                    newDevices.desktop_set = quantity;
-                }
-
-                if (type === "laptop") {
-                    newDevices.laptop = quantity;
-                }
-
-                if (type === "aio") {
-                    newDevices.aio = quantity;
-                }
-            }
-        }
-
+    function toggleDevice(
+        key: DeviceKey,
+        checked: boolean
+    ) {
         setForm((previous) => ({
             ...previous,
-            ...newDevices,
+            [key]: checked
+                ? Math.max(
+                    Number(previous[key]) || 0,
+                    1
+                )
+                : 0,
         }));
     }
 
+    function selectNoDevice() {
+        setForm((previous) => ({
+            ...previous,
+            desktop_set: 0,
+            laptop: 0,
+            aio: 0,
+        }));
+    }
+
+    const noDevice =
+        Number(form.desktop_set) <= 0 &&
+        Number(form.laptop) <= 0 &&
+        Number(form.aio) <= 0;
+
     // ========================================
-    // SAVE RECORD
+    // SAVE
     // ========================================
 
     async function save(
         event: FormEvent<HTMLFormElement>
     ) {
         event.preventDefault();
-
         if (busy) return;
 
         setBusy(true);
@@ -769,33 +671,24 @@ export default function LeftUserClient() {
         const editing = Boolean(editingId);
 
         try {
-            const response = await fetch(
-                API,
-                {
-                    method:
-                        editing ? "PATCH" : "POST",
+            const response = await fetch(API, {
+                method: editing ? "PATCH" : "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    ...form,
+                    ...(editingId
+                        ? { id: editingId }
+                        : {}),
+                }),
+            });
 
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-
-                    body: JSON.stringify({
-                        ...form,
-                        ...(editingId
-                            ? { id: editingId }
-                            : {}),
-                    }),
-                }
-            );
-
-            const result =
-                await readJson(response);
+            const result = await readJson(response);
 
             if (!response.ok) {
                 throw new Error(
-                    result.error ||
-                    "Unable to save record"
+                    result.error || "Save failed"
                 );
             }
 
@@ -806,14 +699,14 @@ export default function LeftUserClient() {
 
             setMessage(
                 editing
-                    ? "User record updated successfully."
-                    : "User record created successfully."
+                    ? "Record updated successfully."
+                    : "Record added successfully."
             );
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Unable to save record"
+                    : "Save failed"
             );
         } finally {
             setBusy(false);
@@ -821,20 +714,17 @@ export default function LeftUserClient() {
     }
 
     // ========================================
-    // DELETE RECORD
+    // DELETE
     // ========================================
 
-    async function remove(
-        row: LeftUserRecord
-    ) {
-        const confirmed = window.confirm(
-            `Permanently delete this record?\n\n` +
-            `User: ${row.user_name}\n` +
-            `Type: ${row.movement_type}\n\n` +
-            `This action cannot be undone.`
-        );
-
-        if (!confirmed) return;
+    async function remove(row: LeftUserRecord) {
+        if (
+            !window.confirm(
+                `Delete record for ${row.user_name}?`
+            )
+        ) {
+            return;
+        }
 
         setDeletingId(row.id);
         setError("");
@@ -843,18 +733,14 @@ export default function LeftUserClient() {
         try {
             const response = await fetch(
                 `${API}?id=${encodeURIComponent(row.id)}`,
-                {
-                    method: "DELETE",
-                }
+                { method: "DELETE" }
             );
 
-            const result =
-                await readJson(response);
+            const result = await readJson(response);
 
             if (!response.ok) {
                 throw new Error(
-                    result.error ||
-                    "Unable to delete record"
+                    result.error || "Delete failed"
                 );
             }
 
@@ -866,13 +752,13 @@ export default function LeftUserClient() {
             await reload();
 
             setMessage(
-                "User record deleted successfully."
+                "Record deleted successfully."
             );
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Unable to delete record"
+                    : "Delete failed"
             );
         } finally {
             setDeletingId(null);
@@ -880,11 +766,11 @@ export default function LeftUserClient() {
     }
 
     // ========================================
-    // SEARCH AND FILTER
+    // FILTER
     // ========================================
 
     const filtered = records.filter((row) => {
-        const typeMatch =
+        const matchesType =
             filter === "ALL" ||
             row.movement_type === filter;
 
@@ -894,8 +780,9 @@ export default function LeftUserClient() {
             row.department,
             row.mobile_no,
             row.user_location,
-            row.section_name,
+            row.movement_type,
             row.service_ensured_by,
+            row.created_by,
             row.pending_requirements,
             row.remarks,
             deviceLabel(row),
@@ -904,7 +791,7 @@ export default function LeftUserClient() {
             .toLowerCase();
 
         return (
-            typeMatch &&
+            matchesType &&
             searchable.includes(
                 search.trim().toLowerCase()
             )
@@ -920,49 +807,321 @@ export default function LeftUserClient() {
     ).length;
 
     // ========================================
-    // TABLE ROW DATA - EXACT COLUMN ORDER
+    // EXCEL EXPORT
     // ========================================
 
-    function rowValues(row: LeftUserRecord) {
-        return [
-            row.user_name,
-            row.designation,
-            row.department,
-            row.mobile_no,
-            row.user_location,
-            readableDate(row.join_left_date),
-            row.movement_type === "LEFT"
-                ? "LEFT"
-                : "NEW JOIN",
-            deviceLabel(row),
-            row.computer_management_status,
-            row.data_backup_status,
-            row.sim_handover_status,
-            row.email_management,
-            row.whatsapp_management,
-            row.pending_requirements,
-            row.service_ensured_by,
-            row.remarks,
-        ];
+    function exportExcel() {
+        if (filtered.length === 0) return;
+
+        try {
+            const data = [
+                EXPORT_HEADERS,
+                ...filtered.map((row, index) =>
+                    getExportRow(row, index + 1)
+                ),
+            ];
+
+            const worksheet =
+                XLSX.utils.aoa_to_sheet(data);
+
+            worksheet["!cols"] = [
+                { wch: 8 },
+                { wch: 24 },
+                { wch: 20 },
+                { wch: 20 },
+                { wch: 16 },
+                { wch: 22 },
+                { wch: 18 },
+                { wch: 12 },
+                { wch: 28 },
+                { wch: 22 },
+                { wch: 24 },
+                { wch: 18 },
+                { wch: 20 },
+                { wch: 22 },
+                { wch: 40 },
+                { wch: 24 },
+                { wch: 22 },
+                { wch: 40 },
+            ];
+
+            worksheet["!autofilter"] = {
+                ref: worksheet["!ref"] || "A1:R1",
+            };
+
+            // Preserve mobile numbers and IDs as text.
+            for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+                const mobileCell = XLSX.utils.encode_cell({
+                    r: rowIndex,
+                    c: 4,
+                });
+
+                const cell = worksheet[mobileCell];
+
+                if (cell) {
+                    cell.t = "s";
+                    cell.v = String(cell.v ?? "");
+                }
+            }
+
+            const workbook =
+                XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(
+                workbook,
+                worksheet,
+                "User Management"
+            );
+
+            const filterName =
+                filter === "ALL"
+                    ? "ALL"
+                    : filter;
+
+            XLSX.writeFile(
+                workbook,
+                `ATG_User_Management_${filterName}_${currentDate()}.xlsx`
+            );
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Excel export failed"
+            );
+        }
     }
 
     // ========================================
-    // PAGE
+    // PDF EXPORT - A4 LANDSCAPE
+    // ========================================
+
+    function exportPDF() {
+        if (filtered.length === 0) return;
+
+        const printWindow = window.open(
+            "",
+            "_blank"
+        );
+
+        if (!printWindow) {
+            setError(
+                "Allow pop-ups for this site to export PDF."
+            );
+            return;
+        }
+
+        const filterTitle =
+            filter === "ALL"
+                ? "All Users"
+                : filter === "LEFT"
+                    ? "Left Users"
+                    : "New Joiners";
+
+        const tableHead = EXPORT_HEADERS.map(
+            (heading) =>
+                `<th>${escapeHtml(heading)}</th>`
+        ).join("");
+
+        const tableBody = filtered.map(
+            (row, index) => {
+                const cells = getExportRow(
+                    row,
+                    index + 1
+                );
+
+                return `
+                    <tr>
+                        ${cells
+                        .map(
+                            (value) =>
+                                `<td>${escapeHtml(value)}</td>`
+                        )
+                        .join("")}
+                    </tr>
+                `;
+            }
+        ).join("");
+
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Auko-Tex Group - User Management</title>
+
+<style>
+    @page {
+        size: A4 landscape;
+        margin: 8mm;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        color: #111;
+        background: white;
+    }
+
+    .report {
+        width: 100%;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 13pt;
+        text-align: center;
+    }
+
+    h2 {
+        margin: 4px 0;
+        font-size: 10pt;
+        text-align: center;
+    }
+
+    .meta {
+        margin: 6px 0 10px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 7pt;
+    }
+
+    table {
+        width: 100%;
+        max-width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 5.4pt;
+    }
+
+    th, td {
+        border: 0.5pt solid #444;
+        padding: 3px 2px;
+        text-align: center;
+        vertical-align: middle;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: pre-wrap;
+    }
+
+    th {
+        background: #111 !important;
+        color: white !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .footer {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 7pt;
+        color: #555;
+    }
+
+    .print-controls {
+        margin: 10px 0;
+        text-align: center;
+    }
+
+    button {
+        padding: 8px 18px;
+        cursor: pointer;
+    }
+
+    @media print {
+        .print-controls {
+            display: none;
+        }
+    }
+</style>
+</head>
+
+<body>
+<div class="report">
+
+    <div class="print-controls">
+        <button onclick="window.print()">
+            Print / Save as PDF
+        </button>
+    </div>
+
+    <h1>AUKO-TEX GROUP</h1>
+
+    <h2>
+        ATG Left &amp; New Join User Information
+        (Factory)
+    </h2>
+
+    <div class="meta">
+        <span>
+            Report: ${escapeHtml(filterTitle)}
+        </span>
+        <span>
+            Total Records: ${filtered.length}
+        </span>
+        <span>
+            Date: ${escapeHtml(readableDate(currentDate()))}
+        </span>
+    </div>
+
+    <table>
+        <thead>
+            <tr>${tableHead}</tr>
+        </thead>
+        <tbody>
+            ${tableBody}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Auko-Tex Group - IT Department
+        | User Management
+    </div>
+
+</div>
+</body>
+</html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+    }
+
+    // ========================================
+    // MAIN PAGE
     // ========================================
 
     return (
         <main className="min-h-screen bg-[#f4f4f4] p-3 text-gray-900 sm:p-5 lg:p-7">
-            <div className="mx-auto max-w-[1800px] space-y-5">
+            <div className="mx-auto w-full space-y-5">
 
                 {/* HEADER */}
                 <header className="flex flex-wrap items-center justify-between gap-3 rounded border-b-[3px] border-[#d4af37] bg-[#111111] p-5">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-widest text-[#d4af37]">
-                            Auko-Tex Group
+                            AUKO-TEX GROUP
                         </p>
 
                         <h1 className="mt-1 text-2xl font-bold text-white">
-                            Left User Management
+                            User Management
                         </h1>
 
                         <p className="mt-1 text-sm text-gray-300">
@@ -974,17 +1133,14 @@ export default function LeftUserClient() {
                     <button
                         type="button"
                         onClick={openNew}
-                        disabled={
-                            busy ||
-                            deletingId !== null
-                        }
+                        disabled={busy || deletingId !== null}
                         className="rounded bg-[#d4af37] px-4 py-2 text-sm font-bold text-black hover:bg-[#b99625] disabled:opacity-50"
                     >
                         + Add User Record
                     </button>
                 </header>
 
-                {/* SUMMARY CARDS */}
+                {/* SUMMARY */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {[
                         ["Total Records", records.length],
@@ -999,15 +1155,16 @@ export default function LeftUserClient() {
                                 {label}
                             </p>
 
-                            <p className="mt-1 text-2xl font-bold text-gray-900">
+                            <p className="mt-1 text-2xl font-bold">
                                 {value}
                             </p>
                         </div>
                     ))}
                 </div>
 
-                {/* SEARCH AND FILTER */}
+                {/* FILTER + EXPORT BAR */}
                 <section className="flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-white p-4">
+
                     <input
                         type="search"
                         value={search}
@@ -1015,7 +1172,7 @@ export default function LeftUserClient() {
                             setSearch(event.target.value)
                         }
                         placeholder="Search user, department, device, engineer..."
-                        className={`${inputClass} min-w-0 flex-1 sm:min-w-[250px]`}
+                        className={`${inputClass} min-w-0 flex-1 sm:min-w-[220px]`}
                     />
 
                     <select
@@ -1026,19 +1183,16 @@ export default function LeftUserClient() {
                                 "ALL" | Movement
                             )
                         }
-                        className={`${inputClass} sm:w-48`}
-                        aria-label="Filter user type"
+                        className={`${inputClass} sm:w-40`}
                     >
+                        <option value="ALL">
+                            All Users
+                        </option>
                         <option value="LEFT">
                             Left Users
                         </option>
-
                         <option value="NEW_JOIN">
                             New Joiners
-                        </option>
-
-                        <option value="ALL">
-                            All Users
                         </option>
                     </select>
 
@@ -1053,24 +1207,39 @@ export default function LeftUserClient() {
                     >
                         Refresh
                     </button>
+
+                    <button
+                        type="button"
+                        onClick={exportExcel}
+                        disabled={loading || filtered.length === 0}
+                        className="rounded border border-green-600 bg-green-50 px-4 py-2 text-sm font-bold text-green-800 hover:bg-green-100 disabled:opacity-50"
+                    >
+                        Export Excel
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={exportPDF}
+                        disabled={loading || filtered.length === 0}
+                        className="rounded border border-red-600 bg-red-50 px-4 py-2 text-sm font-bold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                    >
+                        Export PDF
+                    </button>
+
                 </section>
 
-                {/* ERROR MESSAGE */}
+                {/* MESSAGES */}
                 {error && (
                     <div
                         role="alert"
-                        className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+                        className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800"
                     >
                         {error}
                     </div>
                 )}
 
-                {/* SUCCESS MESSAGE */}
                 {message && (
-                    <div
-                        role="status"
-                        className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800"
-                    >
+                    <div className="rounded border border-green-300 bg-green-50 p-3 text-sm text-green-800">
                         {message}
                     </div>
                 )}
@@ -1081,7 +1250,7 @@ export default function LeftUserClient() {
                         ref={formRef}
                         className="scroll-mt-24 rounded border border-gray-200 bg-white p-5 shadow-sm"
                     >
-                        <div className="mb-5 flex items-center justify-between gap-3">
+                        <div className="mb-5 flex items-center justify-between">
                             <h2 className="text-lg font-bold">
                                 {editingId
                                     ? "Edit User Record"
@@ -1092,7 +1261,7 @@ export default function LeftUserClient() {
                                 type="button"
                                 onClick={closeForm}
                                 disabled={busy}
-                                className="text-sm font-semibold text-gray-600 disabled:opacity-50"
+                                className="text-sm font-semibold text-gray-600"
                             >
                                 Close
                             </button>
@@ -1104,10 +1273,9 @@ export default function LeftUserClient() {
                         >
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
-                                {/* USER NAME / DESIGNATION / DEPARTMENT ETC. */}
+                                {/* EMPLOYEE FIELDS */}
                                 {TEXT_FIELDS.filter(
-                                    (field) =>
-                                        !field.textarea
+                                    (field) => !field.textarea
                                 ).map((field) => (
                                     <div key={field.key}>
                                         <label
@@ -1115,9 +1283,7 @@ export default function LeftUserClient() {
                                             className={labelClass}
                                         >
                                             {field.label}
-                                            {field.required
-                                                ? " *"
-                                                : ""}
+                                            {field.required ? " *" : ""}
                                         </label>
 
                                         <input
@@ -1129,7 +1295,7 @@ export default function LeftUserClient() {
                                             }
                                             value={form[field.key]}
                                             onChange={(event) =>
-                                                update(
+                                                updateField(
                                                     field.key,
                                                     event.target.value
                                                 )
@@ -1142,7 +1308,7 @@ export default function LeftUserClient() {
                                     </div>
                                 ))}
 
-                                {/* JOIN / LEFT DATE */}
+                                {/* DATE */}
                                 <div>
                                     <label
                                         htmlFor="join_left_date"
@@ -1156,18 +1322,18 @@ export default function LeftUserClient() {
                                         type="date"
                                         value={form.join_left_date}
                                         onChange={(event) =>
-                                            update(
+                                            updateField(
                                                 "join_left_date",
                                                 event.target.value
                                             )
                                         }
-                                        disabled={busy}
                                         required
+                                        disabled={busy}
                                         className={inputClass}
                                     />
                                 </div>
 
-                                {/* MOVEMENT TYPE */}
+                                {/* TYPE */}
                                 <div>
                                     <label
                                         htmlFor="movement_type"
@@ -1180,61 +1346,62 @@ export default function LeftUserClient() {
                                         id="movement_type"
                                         value={form.movement_type}
                                         onChange={(event) =>
-                                            update(
+                                            updateField(
                                                 "movement_type",
                                                 event.target.value
                                             )
                                         }
                                         disabled={busy}
-                                        required
                                         className={inputClass}
                                     >
                                         <option value="LEFT">
                                             LEFT
                                         </option>
-
                                         <option value="NEW_JOIN">
                                             NEW JOIN
                                         </option>
                                     </select>
                                 </div>
 
-
-                                {/* DEVICE - MULTI SELECT */}
+                                {/* DEVICE MANAGEMENT */}
                                 <div>
                                     <label className={labelClass}>
-                                        Device
+                                        Device Management
                                     </label>
 
                                     <details className="relative">
-                                        <summary className="w-full cursor-pointer rounded border border-gray-300 bg-white px-3 py-2 text-center text-sm text-gray-900 focus:border-[#d4af37]">
-                                            {[
-                                                form.desktop_set > 0 ? "Desktop Set" : "",
-                                                form.laptop > 0 ? "Laptop" : "",
-                                                form.aio > 0 ? "All in One (AIO)" : "",
-                                            ]
-                                                .filter(Boolean)
-                                                .join(", ") || "Select Device"}
+                                        <summary className={`${inputClass} cursor-pointer list-none`}>
+                                            {deviceLabel(form)}
                                         </summary>
 
                                         <div className="absolute left-0 right-0 z-20 mt-1 rounded border border-gray-300 bg-white p-3 shadow-lg">
-                                            {(
-                                                [
-                                                    ["desktop_set", "Desktop Set"],
-                                                    ["laptop", "Laptop"],
-                                                    ["aio", "All in One (AIO)"],
-                                                ] as const
-                                            ).map(([type, label]) => (
+
+                                            <label className="flex cursor-pointer items-center gap-3 rounded px-3 py-2 text-sm hover:bg-amber-50">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={noDevice}
+                                                    onChange={selectNoDevice}
+                                                    disabled={busy}
+                                                    className="h-4 w-4 accent-[#d4af37]"
+                                                />
+                                                No Device
+                                            </label>
+
+                                            <div className="my-2 border-t border-gray-200" />
+
+                                            {DEVICE_OPTIONS.map((device) => (
                                                 <label
-                                                    key={type}
-                                                    className="flex cursor-pointer items-center gap-3 rounded px-3 py-2 text-sm text-gray-900 hover:bg-amber-50"
+                                                    key={device.key}
+                                                    className="flex cursor-pointer items-center gap-3 rounded px-3 py-2 text-sm hover:bg-amber-50"
                                                 >
                                                     <input
                                                         type="checkbox"
-                                                        checked={form[type] > 0}
+                                                        checked={
+                                                            Number(form[device.key]) > 0
+                                                        }
                                                         onChange={(event) =>
                                                             toggleDevice(
-                                                                type,
+                                                                device.key,
                                                                 event.target.checked
                                                             )
                                                         }
@@ -1242,15 +1409,14 @@ export default function LeftUserClient() {
                                                         className="h-4 w-4 accent-[#d4af37]"
                                                     />
 
-                                                    <span>{label}</span>
+                                                    {device.label}
                                                 </label>
                                             ))}
                                         </div>
                                     </details>
                                 </div>
 
-
-                                {/* IT CLEARANCE STATUS FIELDS */}
+                                {/* MANAGEMENT STATUSES */}
                                 {STATUS_FIELDS.map((field) => (
                                     <div key={field.key}>
                                         <label
@@ -1264,7 +1430,7 @@ export default function LeftUserClient() {
                                             id={field.key}
                                             value={form[field.key]}
                                             onChange={(event) =>
-                                                update(
+                                                updateField(
                                                     field.key,
                                                     event.target.value
                                                 )
@@ -1276,28 +1442,19 @@ export default function LeftUserClient() {
                                                 !field.options.includes(
                                                     form[field.key]
                                                 ) && (
-                                                    <option
-                                                        value={form[field.key]}
-                                                    >
-                                                        {form[field.key]}
-                                                        {" (Existing)"}
+                                                    <option value={form[field.key]}>
+                                                        {form[field.key]} (Existing)
                                                     </option>
                                                 )}
 
-                                            {field.options.map(
-                                                (option) => (
-                                                    <option
-                                                        key={
-                                                            option ||
-                                                            "empty"
-                                                        }
-                                                        value={option}
-                                                    >
-                                                        {option ||
-                                                            "Select Status"}
-                                                    </option>
-                                                )
-                                            )}
+                                            {field.options.map((option) => (
+                                                <option
+                                                    key={option || "blank"}
+                                                    value={option}
+                                                >
+                                                    {option || "Select Status"}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 ))}
@@ -1315,7 +1472,7 @@ export default function LeftUserClient() {
                                         id="service_ensured_by"
                                         value={form.service_ensured_by}
                                         onChange={(event) =>
-                                            update(
+                                            updateField(
                                                 "service_ensured_by",
                                                 event.target.value
                                             )
@@ -1325,11 +1482,10 @@ export default function LeftUserClient() {
                                     >
                                         <option value="">
                                             {staffLoading
-                                                ? "Loading Support Engineers..."
+                                                ? "Loading Engineers..."
                                                 : "Select IT Support Engineer"}
                                         </option>
 
-                                        {/* Preserve saved historical engineer */}
                                         {form.service_ensured_by &&
                                             !supportStaff.some(
                                                 (member) =>
@@ -1339,35 +1495,30 @@ export default function LeftUserClient() {
                                                 <option
                                                     value={form.service_ensured_by}
                                                 >
-                                                    {form.service_ensured_by}
-                                                    {" (Previously Assigned)"}
+                                                    {form.service_ensured_by} (Previously Assigned)
                                                 </option>
                                             )}
 
-                                        {/* Existing IT Support Staff */}
-                                        {supportStaff.map(
-                                            (member) => (
-                                                <option
-                                                    key={member.portal_user_id}
-                                                    value={member.full_name}
-                                                >
-                                                    {formatStaffName(member)}
-                                                </option>
-                                            )
-                                        )}
+                                        {supportStaff.map((member) => (
+                                            <option
+                                                key={member.portal_user_id}
+                                                value={member.full_name}
+                                            >
+                                                {formatStaffName(member)}
+                                            </option>
+                                        ))}
                                     </select>
 
                                     {staffError && (
-                                        <p className="mt-2 text-center text-xs text-red-700">
+                                        <p className="mt-1 text-xs text-red-700">
                                             {staffError}
                                         </p>
                                     )}
                                 </div>
 
-                                {/* PENDING REQUIREMENTS AND REMARKS */}
+                                {/* TEXTAREAS */}
                                 {TEXT_FIELDS.filter(
-                                    (field) =>
-                                        field.textarea
+                                    (field) => field.textarea
                                 ).map((field) => (
                                     <div
                                         key={field.key}
@@ -1385,7 +1536,7 @@ export default function LeftUserClient() {
                                             rows={3}
                                             value={form[field.key]}
                                             onChange={(event) =>
-                                                update(
+                                                updateField(
                                                     field.key,
                                                     event.target.value
                                                 )
@@ -1398,13 +1549,13 @@ export default function LeftUserClient() {
                                 ))}
                             </div>
 
-                            {/* FORM ACTIONS */}
+                            {/* FORM BUTTONS */}
                             <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
                                 <button
                                     type="button"
                                     onClick={closeForm}
                                     disabled={busy}
-                                    className="rounded border border-gray-300 px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                                    className="rounded border border-gray-300 px-4 py-2 text-sm font-semibold"
                                 >
                                     Cancel
                                 </button>
@@ -1425,8 +1576,9 @@ export default function LeftUserClient() {
                     </section>
                 )}
 
-                {/* USER RECORDS TABLE */}
-                <section className="overflow-hidden rounded border border-gray-200 bg-white shadow-sm">
+                {/* FULL SCROLLABLE TABLE */}
+                <section className="w-full overflow-hidden rounded border border-gray-200 bg-white shadow-sm">
+
                     <div className="flex items-center justify-between border-b p-4">
                         <h2 className="font-bold">
                             ATG User Information (Factory)
@@ -1437,23 +1589,19 @@ export default function LeftUserClient() {
                         </span>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[2100px] border-collapse">
-
-                            {/* ALL HEADINGS CENTER ALIGNED */}
+                    <div className="w-full overflow-x-auto">
+                        <table className="w-full min-w-[2300px] border-collapse">
                             <thead className="bg-[#111111] text-white">
                                 <tr>
-                                    {TABLE_HEADERS.map(
-                                        (heading) => (
-                                            <th
-                                                key={heading}
-                                                scope="col"
-                                                className={thClass}
-                                            >
-                                                {heading}
-                                            </th>
-                                        )
-                                    )}
+                                    {TABLE_HEADERS.map((heading) => (
+                                        <th
+                                            key={heading}
+                                            scope="col"
+                                            className={thClass}
+                                        >
+                                            {heading}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
 
@@ -1464,7 +1612,7 @@ export default function LeftUserClient() {
                                             colSpan={TABLE_HEADERS.length}
                                             className="p-8 text-center text-sm"
                                         >
-                                            Loading Left User records...
+                                            Loading records...
                                         </td>
                                     </tr>
                                 ) : filtered.length === 0 ? (
@@ -1477,56 +1625,45 @@ export default function LeftUserClient() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.map(
-                                        (row, index) => (
+                                    filtered.map((row, index) => {
+                                        const values = getExportRow(
+                                            row,
+                                            index + 1
+                                        );
+
+                                        return (
                                             <tr
                                                 key={row.id}
                                                 className="hover:bg-amber-50"
                                             >
-                                                {/* SL NO */}
-                                                <td
-                                                    className={
-                                                        tdClass +
-                                                        " bg-sky-50 font-semibold"
-                                                    }
-                                                >
-                                                    {index + 1}
-                                                </td>
+                                                {values.map((value, column) => (
+                                                    <td
+                                                        key={column}
+                                                        className={
+                                                            tdClass +
+                                                            (column === 0
+                                                                ? " bg-sky-50 font-semibold"
+                                                                : column === 8
+                                                                    ? " bg-rose-50"
+                                                                    : " bg-white")
+                                                        }
+                                                    >
+                                                        {column === 7 ? (
+                                                            <span
+                                                                className={
+                                                                    row.movement_type === "LEFT"
+                                                                        ? "rounded bg-rose-100 px-2 py-1 font-semibold text-rose-800"
+                                                                        : "rounded bg-green-100 px-2 py-1 font-semibold text-green-800"
+                                                                }
+                                                            >
+                                                                {value}
+                                                            </span>
+                                                        ) : (
+                                                            displayText(value)
+                                                        )}
+                                                    </td>
+                                                ))}
 
-                                                {/* REQUIRED ORDERED DATA */}
-                                                {rowValues(row).map(
-                                                    (value, column) => (
-                                                        <td
-                                                            key={column}
-                                                            className={
-                                                                tdClass +
-                                                                (
-                                                                    column === 7
-                                                                        ? " bg-rose-50"
-                                                                        : ""
-                                                                )
-                                                            }
-                                                        >
-                                                            {column === 6 ? (
-                                                                <span
-                                                                    className={
-                                                                        row.movement_type ===
-                                                                            "LEFT"
-                                                                            ? "rounded bg-rose-100 px-2 py-1 font-semibold text-rose-800"
-                                                                            : "rounded bg-green-100 px-2 py-1 font-semibold text-green-800"
-                                                                    }
-                                                                >
-                                                                    {value}
-                                                                </span>
-                                                            ) : (
-                                                                value ||
-                                                                "—"
-                                                            )}
-                                                        </td>
-                                                    )
-                                                )}
-
-                                                {/* ACTION */}
                                                 <td className={tdClass}>
                                                     <div className="flex justify-center gap-3 whitespace-nowrap">
                                                         <button
@@ -1538,7 +1675,7 @@ export default function LeftUserClient() {
                                                                 busy ||
                                                                 deletingId !== null
                                                             }
-                                                            className="font-semibold text-blue-700 hover:underline disabled:opacity-50"
+                                                            className="font-semibold text-blue-700 disabled:opacity-50"
                                                         >
                                                             Edit
                                                         </button>
@@ -1552,7 +1689,7 @@ export default function LeftUserClient() {
                                                                 busy ||
                                                                 deletingId !== null
                                                             }
-                                                            className="font-semibold text-red-700 hover:underline disabled:opacity-50"
+                                                            className="font-semibold text-red-700 disabled:opacity-50"
                                                         >
                                                             {deletingId === row.id
                                                                 ? "Deleting..."
@@ -1561,18 +1698,17 @@ export default function LeftUserClient() {
                                                     </div>
                                                 </td>
                                             </tr>
-                                        )
-                                    )
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </section>
 
-                {/* FOOTER */}
                 <p className="text-center text-xs text-gray-500">
                     Auko-Tex Group — IT Department |
-                    Left &amp; New Join User Management
+                    User Management
                 </p>
             </div>
         </main>
