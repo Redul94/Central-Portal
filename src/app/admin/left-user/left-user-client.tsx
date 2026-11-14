@@ -1590,18 +1590,44 @@ export default function LeftUserClient() {
                     </div>
 
                     <div className="w-full overflow-x-auto">
-                        <table className="w-full min-w-[2300px] border-collapse">
+                        <table className="w-max min-w-full table-auto border-collapse">
                             <thead className="bg-[#111111] text-white">
                                 <tr>
-                                    {TABLE_HEADERS.map((heading) => (
-                                        <th
-                                            key={heading}
-                                            scope="col"
-                                            className={thClass}
-                                        >
-                                            {heading}
-                                        </th>
-                                    ))}
+
+                                    {TABLE_HEADERS.map((heading) => {
+                                        const compactColumns = [
+                                            "Computer Management",
+                                            "Data Backup Management",
+                                            "SIM Management",
+                                            "E-mail Management",
+                                            "WhatsApp Management",
+                                        ];
+
+                                        const isCompact = compactColumns.includes(heading);
+
+                                        const isLongText = [
+                                            "Pending Requirements (If Any)",
+                                            "Remarks",
+                                        ].includes(heading);
+
+                                        return (
+                                            <th
+                                                key={heading}
+                                                scope="col"
+                                                className={
+                                                    thClass +
+                                                    (isCompact
+                                                        ? " w-[105px] min-w-[105px] max-w-[105px]"
+                                                        : isLongText
+                                                            ? " w-[180px] min-w-[180px] max-w-[180px]"
+                                                            : "")
+                                                }
+                                            >
+                                                {heading}
+                                            </th>
+                                        );
+                                    })}
+
                                 </tr>
                             </thead>
 
@@ -1639,14 +1665,21 @@ export default function LeftUserClient() {
                                                 {values.map((value, column) => (
                                                     <td
                                                         key={column}
+
                                                         className={
                                                             tdClass +
+                                                            ([9, 10, 11, 12, 13].includes(column)
+                                                                ? " w-[105px] min-w-[105px] max-w-[105px]"
+                                                                : [14, 17].includes(column)
+                                                                    ? " w-[180px] min-w-[180px] max-w-[180px] whitespace-normal break-words"
+                                                                    : "") +
                                                             (column === 0
                                                                 ? " bg-sky-50 font-semibold"
                                                                 : column === 8
                                                                     ? " bg-rose-50"
                                                                     : " bg-white")
                                                         }
+
                                                     >
                                                         {column === 7 ? (
                                                             <span

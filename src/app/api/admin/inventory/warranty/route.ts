@@ -239,7 +239,24 @@ export async function GET() {
 
     try {
         const result = await db.query(
-            SELECT_SQL + " ORDER BY id DESC"
+            SELECT_SQL +
+            `
+    ORDER BY
+        CASE
+            WHEN product_id ~ '^[0-9]+$'
+            THEN 0
+            ELSE 1
+        END ASC,
+
+        CASE
+            WHEN product_id ~ '^[0-9]{1,18}$'
+            THEN product_id::bigint
+            ELSE NULL
+        END ASC NULLS LAST,
+
+        product_id ASC,
+        id ASC
+    `
         );
 
         return NextResponse.json(
